@@ -1,0 +1,38 @@
+# FastAPI + ASGI
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+sse-starlette>=2.1.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.36
+asyncpg>=0.30.0
+pgvector>=0.3.6
+alembic>=1.14.0
+
+# Auth
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.17
+
+# Config
+pydantic-settings>=2.6.0
+pydantic>=2.10.0
+
+# AI / Embedding
+openai>=1.58.0
+sentence-transformers>=3.3.0
+
+# Agent
+langgraph>=0.2.0
+langchain>=0.3.0
+langchain-core>=0.3.0
+
+# File parsing (already installed but pin)
+pypdf>=5.1.0
+python-docx>=1.1.0
+python-pptx>=1.0.0
+
+# Utils
+aiofiles>=24.1.0
+redis>=5.2.0
+httpx>=0.28.0
