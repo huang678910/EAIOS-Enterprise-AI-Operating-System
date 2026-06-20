@@ -20,12 +20,41 @@ settings = get_settings()
 # ---- 文件解析器 ----
 
 def parse_pdf(filepath: str) -> str:
+    """PDF 解析 — 优先使用 PyMuPDF (fitz)，回退到 pypdf"""
+    # Try PyMuPDF first (better text extraction + image support)
+    try:
+        import fitz  # PyMuPDF
+        doc = fitz.open(filepath)
+        parts = []
+        for page in doc:
+            text = page.get_text()
+            if text.strip():
+                parts.append(text)
+            # Extract embedded images
+            for img_index, img in enumerate(page.get_images(full=True)):
+                try:
+                    xref = img[0]
+                    base_image = doc.extract_image(xref)
+                    img_bytes = base_image["image"]
+                    img_ext = base_image["ext"]
+                    if img_bytes and len(img_bytes) > 1024:  # Skip tiny images
+                        import base64
+                        b64 = base64.b64encode(img_bytes).decode()
+                        parts.append(f"[Image: page_{page.number + 1}_img_{img_index}.{img_ext}]\n(data:image/{img_ext};base64,{b64[:100]}...)")
+                except Exception:
+                    pass
+        doc.close()
+        return "\n\n".join(parts) if parts else "(No extractable text)"
+    except ImportError:
+        pass
+
+    # Fallback to pypdf
     try:
         from pypdf import PdfReader
         reader = PdfReader(filepath)
         return "\n".join(page.extract_text() or "" for page in reader.pages)
     except ImportError:
-        raise ImportError("pypdf not installed")
+        raise ImportError("pypdf or PyMuPDF not installed")
 
 def parse_docx(filepath: str) -> str:
     try:
@@ -38,12 +67,29 @@ def parse_docx(filepath: str) -> str:
 def parse_pptx(filepath: str) -> str:
     try:
         from pptx import Presentation
+        from pptx.shapes.picture import Picture
         prs = Presentation(filepath)
         text = []
-        for slide in prs.slides:
+        for slide_num, slide in enumerate(prs.slides):
             for shape in slide.shapes:
                 if shape.has_text_frame:
                     text.append(shape.text_frame.text)
+                # Check for images
+                if hasattr(shape, "image"):
+                    try:
+                        img = shape.image
+                        text.append(f"[Image: slide_{slide_num + 1}_{shape.name}.{img.content_type.split('/')[-1]}]")
+                    except Exception:
+                        pass
+                # Check for tables
+                if shape.has_table:
+                    table = shape.table
+                    rows = []
+                    for row in table.rows:
+                        cells = [cell.text for cell in row.cells]
+                        rows.append(" | ".join(cells))
+                    if rows:
+                        text.append("| " + " |\n| ".join(r for r in rows) + " |")
         return "\n".join(text)
     except ImportError:
         raise ImportError("python-pptx not installed")

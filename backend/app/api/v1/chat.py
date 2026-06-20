@@ -1,9 +1,11 @@
 """聊天 API — 会话管理 + SSE 流式对话 + HTTP 降级"""
 
 import logging
+from typing import Dict, Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -173,3 +175,165 @@ async def send_message(
         raise HTTPException(status_code=500, detail=str(e))
 
     return {"reply": full or "No response generated.", "sources": sources}
+
+
+# ─── Decision Center (dedicated endpoint, no chat session) ──
+
+@router.post("/decision/analyze")
+async def analyze_decision(
+    workspace_id: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """提交战略问题，SSE 流式返回多维度分析（不创建 Chat Session）"""
+    await require_workspace_role(workspace_id, current_user, "member", db)
+
+    # Parse body manually
+    import json
+    try:
+        data = await request.json()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Body parse error: {e}")
+
+    question = (data.get("question") or "").strip()
+    if not question:
+        raise HTTPException(status_code=400, detail=f"Question missing. Body: {str(data)[:200]}")
+
+    async def event_stream():
+        full_analysis = ""
+        try:
+            from app.database import AsyncSessionLocal
+            from app.services.company_service import CompanyService
+            from app.services.memory_service import MemoryService
+            from app.services.business_metrics_service import BusinessMetricsService
+            from app.services.llm_service import _get_llm
+            from langchain_core.messages import SystemMessage, HumanMessage
+
+            context_parts = []
+            try:
+                async with AsyncSessionLocal() as s:
+                    co_svc = CompanyService(s, workspace_id)
+                    ctx = await co_svc.get_company_summary()
+                    if ctx:
+                        context_parts.append("### Company Profile\n" + ctx)
+            except Exception:
+                pass
+            try:
+                async with AsyncSessionLocal() as s:
+                    mem_svc = MemoryService(s, workspace_id)
+                    ctx = await mem_svc.get_context_for_dialog(question, top_k=3)
+                    if ctx:
+                        context_parts.append("### Enterprise Memory\n" + ctx)
+            except Exception:
+                pass
+            try:
+                async with AsyncSessionLocal() as s:
+                    metrics_svc = BusinessMetricsService(s)
+                    ctx = await metrics_svc.get_ai_analysis_context(workspace_id)
+                    if ctx:
+                        context_parts.append("### Business Metrics\n" + ctx)
+            except Exception:
+                pass
+
+            context = "\n\n".join(context_parts) if context_parts else "No enterprise data available."
+
+            from app.agents.decision_agent import DECISION_SYSTEM_PROMPT
+            llm = _get_llm(streaming=True)
+            messages = [
+                SystemMessage(content=DECISION_SYSTEM_PROMPT),
+                HumanMessage(content=f"**Strategic Question:** {question}\n\n**Enterprise Context:**\n{context}\n\nProvide a comprehensive multi-dimension analysis."),
+            ]
+
+            yield f"event: status\ndata: Analyzing enterprise data...\n\n"
+            async for chunk in llm.astream(messages):
+                if chunk.content:
+                    full_analysis += chunk.content
+                    yield f"data: {chunk.content}\n\n"
+
+            # Save to decisions table
+            try:
+                async with AsyncSessionLocal() as s:
+                    from app.models.decision import Decision
+                    dec = Decision(
+                        workspace_id=workspace_id,
+                        user_id=current_user.id,
+                        question=question,
+                        analysis=full_analysis,
+                        status="completed",
+                    )
+                    s.add(dec)
+                    await s.commit()
+            except Exception as save_err:
+                logger.error(f"Failed to save decision: {save_err}")
+
+        except Exception as e:
+            logger.error(f"Decision analysis error: {e}", exc_info=True)
+            yield f"event: error\ndata: {str(e)}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+    )
+
+
+@router.get("/decision/history")
+async def decision_history(
+    workspace_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """获取历史决策记录"""
+    await require_workspace_role(workspace_id, current_user, "member", db)
+    from sqlalchemy import select as sa_select
+    from app.models.decision import Decision
+    result = await db.execute(
+        sa_select(Decision)
+        .where(Decision.workspace_id == workspace_id)
+        .order_by(Decision.created_at.desc())
+        .limit(20)
+    )
+    decisions = result.scalars().all()
+    return [
+        {
+            "id": str(d.id),
+            "question": d.question,
+            "analysis": d.analysis,
+            "status": d.status,
+            "created_at": d.created_at.isoformat() if d.created_at else None,
+        }
+        for d in decisions
+    ]
+
+
+@router.delete("/decision/{decision_id}")
+async def delete_decision(
+    workspace_id: str,
+    decision_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """删除决策记录（仅 Admin）"""
+    import uuid as uuid_mod
+    from sqlalchemy import select as sa_select
+    from app.models.decision import Decision
+    await require_workspace_role(workspace_id, current_user, "admin", db)
+
+    try:
+        dec_uuid = uuid_mod.UUID(decision_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid decision ID format")
+
+    result = await db.execute(
+        sa_select(Decision).where(
+            Decision.id == dec_uuid,
+            Decision.workspace_id == workspace_id,
+        )
+    )
+    dec = result.scalar_one_or_none()
+    if not dec:
+        raise HTTPException(status_code=404, detail="Decision not found")
+    await db.delete(dec)
+    await db.commit()
+    return {"status": "ok", "deleted": decision_id}

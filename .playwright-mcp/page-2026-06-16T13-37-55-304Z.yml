@@ -1,0 +1,39 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "Toggle menu" [ref=e3] [cursor=pointer]:
+      - img [ref=e4]
+    - main [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - img [ref=e8]
+          - generic [ref=e12]:
+            - generic [ref=e13]: "Current Workspace:"
+            - combobox [ref=e46]:
+              - option "Aurora Tech" [selected]
+        - generic [ref=e15]:
+          - heading "Organization Structure" [level=2] [ref=e16]
+          - paragraph [ref=e17]: Manage departments, positions, and employees.
+        - generic [ref=e18]:
+          - button "Departments" [ref=e19] [cursor=pointer]:
+            - img [ref=e20]
+            - text: Departments
+          - button "Positions" [ref=e23] [cursor=pointer]:
+            - img [ref=e24]
+            - text: Positions
+          - button "Employees" [ref=e29] [cursor=pointer]:
+            - img [ref=e30]
+            - text: Employees
+        - generic [ref=e47]: Request failed with status code 500
+        - generic [ref=e33]:
+          - heading "Departments" [level=3] [ref=e35]
+          - generic [ref=e36]:
+            - generic [ref=e37]:
+              - textbox "Dept name" [ref=e38]: 总裁办
+              - textbox "Type (e.g. Sales)" [ref=e39]
+              - combobox [ref=e40]:
+                - option "No Parent" [selected]
+              - button "Add" [ref=e41] [cursor=pointer]:
+                - img [ref=e42]
+                - text: Add
+            - paragraph [ref=e44]: No departments yet. Add your first one.
+  - alert [ref=e45]

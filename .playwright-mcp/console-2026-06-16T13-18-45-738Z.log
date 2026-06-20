@@ -1,0 +1,4 @@
+[  678016ms] [LOG] [WS] Connecting: /api/v1/ws/chat?token=***&session_id=edacaf88-2f3d-4b2d-8641-6c2668477d4e&workspace_id=e7d8c84a-0f0e-4dc7-89e9-18cfbaab5d4e @ http://localhost:8080/_next/static/chunks/app/chat/page-79c03f80e5c6c15a.js:0
+[  678076ms] [LOG] [WS] Connected @ http://localhost:8080/_next/static/chunks/app/chat/page-79c03f80e5c6c15a.js:0
+[  678077ms] [LOG] [Chat] WebSocket connected @ http://localhost:8080/_next/static/chunks/app/chat/page-79c03f80e5c6c15a.js:0
+[  678089ms] [LOG] [Chat] WebSocket connected @ http://localhost:8080/_next/static/chunks/app/chat/page-79c03f80e5c6c15a.js:0

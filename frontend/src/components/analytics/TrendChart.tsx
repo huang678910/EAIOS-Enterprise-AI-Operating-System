@@ -38,7 +38,7 @@ export default function TrendChart({ data, metricName, color = "#3b82f6", height
           <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" width={60} />
           <Tooltip
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e5e7eb" }}
-            formatter={(value: number) => [value.toLocaleString(), metricName]}
+            formatter={(value) => [Number(value).toLocaleString(), metricName]}
           />
           <Line
             type="monotone"

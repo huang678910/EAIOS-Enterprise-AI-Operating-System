@@ -45,7 +45,7 @@ export class WebSocketClient {
     const base =
       process.env.NEXT_PUBLIC_WS_URL ||
       process.env.NEXT_PUBLIC_API_URL?.replace(/^http/, "ws") ||
-      "ws://localhost:8000";
+      "";
     this.url = base;
   }
 

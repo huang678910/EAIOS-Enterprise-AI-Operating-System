@@ -3,14 +3,14 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore, useWorkspaceStore } from "@/lib/stores";
 import {
-  listGoals, createGoal, deleteGoal,
+  listGoals, createGoal, updateGoal, deleteGoal,
   listKPIs, createKPI, updateKPI, deleteKPI,
   type GoalData, type KPIData,
 } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, ArrowUp, ArrowDown } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Edit3, X } from "lucide-react";
 import WorkspaceSelector from "@/components/layout/WorkspaceSelector";
 
 export default function GoalsSettingsPage() {
@@ -21,13 +21,14 @@ export default function GoalsSettingsPage() {
   const [error, setError] = useState("");
 
   const [goals, setGoals] = useState<GoalData[]>([]);
-  const [newGoal, setNewGoal] = useState({ title: "", type: "KPI", target_value: "", current_value: "", direction: "higher" });
+  const [newGoal, setNewGoal] = useState({ title: "", type: "KPI", target_value: "", current_value: "", direction: "higher", description: "", start_date: "", end_date: "" });
+  const [editGoal, setEditGoal] = useState<Record<string, { title: string; type: string; target_value: string; current_value: string; direction: string; description: string; status: string }>>({});
   const [savingGoal, setSavingGoal] = useState(false);
 
   const [kpis, setKPIs] = useState<KPIData[]>([]);
   const [newKPI, setNewKPI] = useState({ name: "", category: "", current_value: "", target_value: "", unit: "", period: "" });
   const [savingKPI, setSavingKPI] = useState(false);
-  const [editKPI, setEditKPI] = useState<Record<string, { current_value: string; target_value: string }>>({});
+  const [editKPI, setEditKPI] = useState<Record<string, { name: string; category: string; current_value: string; target_value: string; unit: string; period: string }>>({});
 
   useEffect(() => { if (!token) router.push("/login"); }, [token, router]);
 
@@ -72,12 +73,12 @@ export default function GoalsSettingsPage() {
       await createGoal(workspaceId, {
         title: newGoal.title,
         type: newGoal.type,
-        target_value: newGoal.target_value ? parseFloat(newGoal.target_value) : null,
-        current_value: newGoal.current_value ? parseFloat(newGoal.current_value) : null,
+        target_value: newGoal.target_value ? parseFloat(newGoal.target_value) : undefined,
+        current_value: newGoal.current_value ? parseFloat(newGoal.current_value) : undefined,
         progress_pct: progress,
         direction: newGoal.direction,
       });
-      setNewGoal({ title: "", type: "KPI", target_value: "", current_value: "", direction: "higher" });
+      setNewGoal({ title: "", type: "KPI", target_value: "", current_value: "", direction: "higher", description: "", start_date: "", end_date: "" });
       loadAll();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to create goal";
@@ -85,6 +86,26 @@ export default function GoalsSettingsPage() {
       console.error("[Goals] Create error:", err);
     } finally {
       setSavingGoal(false);
+    }
+  };
+
+  const handleUpdateGoal = async (id: string) => {
+    if (!workspaceId) return;
+    const e = editGoal[id]; if (!e || !e.title.trim()) return;
+    setError("");
+    try {
+      const progress = calcProgress(e.current_value, e.target_value, e.direction);
+      await updateGoal(workspaceId, id, {
+        title: e.title, type: e.type,
+        target_value: e.target_value ? parseFloat(e.target_value) : undefined,
+        current_value: e.current_value ? parseFloat(e.current_value) : undefined,
+        progress_pct: progress, direction: e.direction,
+        description: e.description || undefined, status: e.status || undefined,
+      });
+      const next = { ...editGoal }; delete next[id]; setEditGoal(next);
+      loadAll();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Update failed");
     }
   };
 
@@ -97,8 +118,8 @@ export default function GoalsSettingsPage() {
       await createKPI(workspaceId, {
         name: newKPI.name,
         category: newKPI.category || undefined,
-        current_value: newKPI.current_value ? parseFloat(newKPI.current_value) : null,
-        target_value: newKPI.target_value ? parseFloat(newKPI.target_value) : null,
+        current_value: newKPI.current_value ? parseFloat(newKPI.current_value) : undefined,
+        target_value: newKPI.target_value ? parseFloat(newKPI.target_value) : undefined,
         unit: newKPI.unit || undefined,
         period: newKPI.period || undefined,
       });
@@ -174,40 +195,64 @@ export default function GoalsSettingsPage() {
             </div>
             {goals.map((g) => (
               <div key={g.id} className="p-3 rounded border border-gray-100 hover:bg-gray-50 group">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{g.title}</span>
-                    {g.direction === "lower" && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-500 flex items-center gap-0.5" title="越低越好">
-                        <ArrowDown size={10} /> lower
-                      </span>
-                    )}
-                    {g.direction !== "lower" && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-500 flex items-center gap-0.5" title="越高越好">
-                        <ArrowUp size={10} /> higher
-                      </span>
-                    )}
+                {editGoal[g.id] ? (
+                  <div className="space-y-2">
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Input value={editGoal[g.id].title} onChange={(d) => setEditGoal({ ...editGoal, [g.id]: { ...editGoal[g.id], title: d.target.value } })} className="flex-1 min-w-[150px] h-7 text-xs" placeholder="Title" />
+                      <select value={editGoal[g.id].type} onChange={(d) => setEditGoal({ ...editGoal, [g.id]: { ...editGoal[g.id], type: d.target.value } })} className="text-xs rounded border border-gray-200 px-2 py-1 h-7">
+                        <option value="KPI">KPI</option><option value="OKR">OKR</option><option value="MBO">MBO</option>
+                      </select>
+                      <select value={editGoal[g.id].status} onChange={(d) => setEditGoal({ ...editGoal, [g.id]: { ...editGoal[g.id], status: d.target.value } })} className="text-xs rounded border border-gray-200 px-2 py-1 h-7">
+                        <option value="active">Active</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option>
+                      </select>
+                      <Input value={editGoal[g.id].target_value} onChange={(d) => setEditGoal({ ...editGoal, [g.id]: { ...editGoal[g.id], target_value: d.target.value } })} type="number" className="w-20 h-7 text-xs" placeholder="Target" />
+                      <Input value={editGoal[g.id].current_value} onChange={(d) => setEditGoal({ ...editGoal, [g.id]: { ...editGoal[g.id], current_value: d.target.value } })} type="number" className="w-20 h-7 text-xs" placeholder="Cur" />
+                      <button type="button" onClick={() => setEditGoal({ ...editGoal, [g.id]: { ...editGoal[g.id], direction: editGoal[g.id].direction === "higher" ? "lower" : "higher" } })}
+                        className={`text-[10px] px-1.5 py-0.5 rounded h-7 ${editGoal[g.id].direction === "higher" ? "bg-green-50 text-green-600 border border-green-200" : "bg-red-50 text-red-600 border border-red-200"}`}>
+                        {editGoal[g.id].direction === "higher" ? "↑ higher" : "↓ lower"}
+                      </button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => handleUpdateGoal(g.id)}>Save</Button>
+                      <button onClick={() => { const n = { ...editGoal }; delete n[g.id]; setEditGoal(n); }} className="p-0.5 hover:bg-gray-200 rounded"><X size={14} /></button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      g.type === "OKR" ? "bg-blue-50 text-blue-600" : g.type === "MBO" ? "bg-purple-50 text-purple-600" : "bg-green-50 text-green-600"
-                    }`}>{g.type}</span>
-                    <button onClick={async () => { if (!workspaceId || !confirm("Delete?")) return; await deleteGoal(workspaceId, g.id); loadAll(); }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded"><Trash2 size={12} className="text-red-400" /></button>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3 mt-2">
-                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full transition-all ${getBarColor(g.progress_pct || 0, g.direction || "higher")}`}
-                      style={{ width: `${Math.min(100, g.progress_pct || 0)}%` }} />
-                  </div>
-                  <span className="text-xs text-gray-500 w-10 text-right">{g.progress_pct || 0}%</span>
-                </div>
-                <div className="flex gap-4 mt-1 text-xs text-gray-400">
-                  {g.target_value != null && <span>Target: {g.target_value}</span>}
-                  {g.current_value != null && <span>Current: {g.current_value}</span>}
-                  <span>{g.status}</span>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{g.title}</span>
+                        {g.direction === "lower" ? (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-500 flex items-center gap-0.5"><ArrowDown size={10} /> lower</span>
+                        ) : (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-500 flex items-center gap-0.5"><ArrowUp size={10} /> higher</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${g.type === "OKR" ? "bg-blue-50 text-blue-600" : g.type === "MBO" ? "bg-purple-50 text-purple-600" : "bg-green-50 text-green-600"}`}>{g.type}</span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${g.status === "completed" ? "bg-green-50 text-green-600" : "bg-gray-50 text-gray-500"}`}>{g.status}</span>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs opacity-0 group-hover:opacity-100 px-1.5"
+                          onClick={() => setEditGoal({ ...editGoal, [g.id]: { title: g.title, type: g.type, target_value: g.target_value?.toString() || "", current_value: g.current_value?.toString() || "", direction: g.direction || "higher", description: g.description || "", status: g.status || "active" } })}>
+                          <Edit3 size={12} className="mr-0.5" />Edit
+                        </Button>
+                        <button onClick={async () => { if (!workspaceId || !confirm("Delete?")) return; await deleteGoal(workspaceId, g.id); loadAll(); }}
+                          className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded"><Trash2 size={12} className="text-red-400" /></button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-2">
+                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${getBarColor(g.progress_pct || 0, g.direction || "higher")}`}
+                          style={{ width: `${Math.min(100, g.progress_pct || 0)}%` }} />
+                      </div>
+                      <span className="text-xs text-gray-500 w-10 text-right">{g.progress_pct || 0}%</span>
+                    </div>
+                    <div className="flex gap-4 mt-1 text-xs text-gray-400 flex-wrap">
+                      {g.target_value != null && <span>Target: {g.target_value}</span>}
+                      {g.current_value != null && <span>Current: {g.current_value}</span>}
+                      {g.description && <span>📝 {g.description.slice(0, 50)}</span>}
+                      {g.start_date && <span>📅 {g.start_date}</span>}
+                      {g.end_date && <span>→ {g.end_date}</span>}
+                    </div>
+                  </>
+                )}
               </div>
             ))}
           </CardContent>
@@ -238,39 +283,36 @@ export default function GoalsSettingsPage() {
               </Button>
             </div>
             {kpis.map((k) => (
-              <div key={k.id} className="flex items-center gap-2 p-3 rounded border border-gray-100 hover:bg-gray-50 group">
-                <span className="flex-1 text-sm font-medium">{k.name}</span>
-                <span className="text-xs text-gray-400">{k.category}</span>
+              <div key={k.id} className="p-3 rounded border border-gray-100 hover:bg-gray-50 group">
                 {editKPI[k.id] ? (
-                  <div className="flex items-center gap-1">
-                    <Input type="number" value={editKPI[k.id].current_value}
-                      onChange={(e) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], current_value: e.target.value } })}
-                      className="w-20 h-7 text-xs" />
-                    <Input type="number" value={editKPI[k.id].target_value}
-                      onChange={(e) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], target_value: e.target.value } })}
-                      className="w-20 h-7 text-xs" />
-                    <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={async () => {
-                      if (!workspaceId) return;
-                      const e = editKPI[k.id];
-                      await updateKPI(workspaceId, k.id, {
-                        current_value: e.current_value ? parseFloat(e.current_value) : null,
-                        target_value: e.target_value ? parseFloat(e.target_value) : null,
-                      });
-                      const next = { ...editKPI }; delete next[k.id]; setEditKPI(next);
-                      loadAll();
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <Input value={editKPI[k.id].name} onChange={(d) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], name: d.target.value } })} className="w-28 h-7 text-xs" placeholder="Name" />
+                    <Input value={editKPI[k.id].category} onChange={(d) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], category: d.target.value } })} className="w-20 h-7 text-xs" placeholder="Cat" />
+                    <Input type="number" value={editKPI[k.id].current_value} onChange={(d) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], current_value: d.target.value } })} className="w-16 h-7 text-xs" />
+                    <Input type="number" value={editKPI[k.id].target_value} onChange={(d) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], target_value: d.target.value } })} className="w-16 h-7 text-xs" />
+                    <Input value={editKPI[k.id].unit} onChange={(d) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], unit: d.target.value } })} className="w-12 h-7 text-xs" placeholder="u" />
+                    <Input value={editKPI[k.id].period} onChange={(d) => setEditKPI({ ...editKPI, [k.id]: { ...editKPI[k.id], period: d.target.value } })} className="w-20 h-7 text-xs" placeholder="Period" />
+                    <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={async () => {
+                      if (!workspaceId) return; const e = editKPI[k.id];
+                      await updateKPI(workspaceId, k.id, { name: e.name, category: e.category || undefined, current_value: e.current_value ? parseFloat(e.current_value) : undefined, target_value: e.target_value ? parseFloat(e.target_value) : undefined, unit: e.unit || undefined, period: e.period || undefined });
+                      const next = { ...editKPI }; delete next[k.id]; setEditKPI(next); loadAll();
                     }}>Save</Button>
+                    <button onClick={() => { const n = { ...editKPI }; delete n[k.id]; setEditKPI(n); }} className="p-0.5 hover:bg-gray-200 rounded"><X size={14} /></button>
                   </div>
                 ) : (
-                  <span className="text-xs text-gray-500">
-                    {k.current_value}{k.unit} / {k.target_value}{k.unit}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="flex-1 text-sm font-medium">{k.name}</span>
+                    {k.category && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{k.category}</span>}
+                    <span className="text-xs text-gray-500">{k.current_value}{k.unit} / {k.target_value}{k.unit}</span>
+                    {k.period && <span className="text-[10px] text-gray-400">{k.period}</span>}
+                    <Button size="sm" variant="ghost" className="h-7 text-xs opacity-0 group-hover:opacity-100 px-1.5"
+                      onClick={() => setEditKPI({ ...editKPI, [k.id]: { name: k.name, category: k.category || "", current_value: k.current_value?.toString() || "", target_value: k.target_value?.toString() || "", unit: k.unit || "", period: k.period || "" } })}>
+                      <Edit3 size={12} className="mr-0.5" />Edit
+                    </Button>
+                    <button onClick={async () => { if (!workspaceId || !confirm("Delete?")) return; await deleteKPI(workspaceId, k.id); loadAll(); }}
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded"><Trash2 size={12} className="text-red-400" /></button>
+                  </div>
                 )}
-                <Button size="sm" variant="ghost" className="h-7 text-xs opacity-0 group-hover:opacity-100"
-                  onClick={() => setEditKPI({ ...editKPI, [k.id]: { current_value: k.current_value?.toString() || "", target_value: k.target_value?.toString() || "" } })}>
-                  Edit
-                </Button>
-                <button onClick={async () => { if (!workspaceId || !confirm("Delete?")) return; await deleteKPI(workspaceId, k.id); loadAll(); }}
-                  className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-red-50 rounded"><Trash2 size={12} className="text-red-400" /></button>
               </div>
             ))}
           </CardContent>

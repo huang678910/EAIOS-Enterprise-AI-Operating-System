@@ -1,0 +1,32 @@
+- generic [active] [ref=e1]:
+  - alert [ref=e18]
+  - generic [ref=e19]:
+    - button "Toggle menu" [ref=e20] [cursor=pointer]:
+      - img [ref=e21]
+    - main [ref=e22]:
+      - generic [ref=e23]:
+        - generic [ref=e24]:
+          - generic [ref=e25]:
+            - text: Workspace
+            - combobox [ref=e26]
+            - button "+ New Workspace" [ref=e27] [cursor=pointer]
+          - generic [ref=e29]:
+            - generic [ref=e30]: Chats
+            - button "New Chat" [ref=e31] [cursor=pointer]:
+              - img [ref=e32]
+        - generic [ref=e33]:
+          - generic [ref=e35]:
+            - heading "Chat WS Offline" [level=2] [ref=e36]:
+              - text: Chat
+              - generic [ref=e37]: WS Offline
+            - paragraph [ref=e39]: Select a workspace
+          - generic [ref=e41]:
+            - img [ref=e43]
+            - heading "Start a Conversation" [level=3] [ref=e45]
+            - paragraph [ref=e46]: Ask questions about your uploaded documents. The AI will search your knowledge base and provide answers with source references.
+          - generic [ref=e47]:
+            - generic [ref=e48]:
+              - textbox "Ask anything about your documents..." [disabled] [ref=e49]
+              - button [disabled] [ref=e50]:
+                - img [ref=e51]
+            - paragraph [ref=e54]: Press Enter to send • Shift+Enter for new line

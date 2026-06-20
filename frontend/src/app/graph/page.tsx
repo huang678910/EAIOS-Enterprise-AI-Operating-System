@@ -202,7 +202,7 @@ export default function GraphPage() {
           <CardContent className="p-4 text-center">
             <p className="text-sm text-amber-700">
               Neo4j is not connected. Run <code className="bg-amber-100 px-1 rounded">docker-compose up -d neo4j</code> to start the graph database,
-              then click "Sync from DB" to populate the knowledge graph.
+              then click <b>Sync from DB</b> to populate the knowledge graph.
             </p>
           </CardContent>
         </Card>

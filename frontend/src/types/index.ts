@@ -124,6 +124,23 @@ export interface WSClientMessage {
   };
 }
 
+// ---- API Error (typed error handling) ----
+export class ApiError extends Error {
+  status: number;
+  detail: string;
+  constructor(status: number, detail: string) {
+    super(detail);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+  static from(err: unknown, fallback = "Unknown error"): string {
+    if (err instanceof ApiError) return err.detail;
+    const e = err as { response?: { data?: { detail?: string } } };
+    return e?.response?.data?.detail || fallback;
+  }
+}
+
 // ---- Business Metrics (Digital Twin) ----
 export interface BusinessMetric {
   id: string;

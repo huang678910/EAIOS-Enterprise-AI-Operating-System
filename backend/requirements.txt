@@ -1,3 +1,8 @@
+# Testing
+pytest>=8.0
+pytest-asyncio>=0.24
+httpx>=0.28.0
+
 # FastAPI + ASGI
 fastapi>=0.115.0
 uvicorn[standard]>=0.32.0
@@ -12,6 +17,7 @@ alembic>=1.14.0
 # Auth
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
+bcrypt<5.0
 python-multipart>=0.0.17
 
 # Config
@@ -31,6 +37,7 @@ langchain-huggingface>=0.1.0
 
 # File parsing (already installed but pin)
 pypdf>=5.1.0
+PyMuPDF>=1.24.0
 python-docx>=1.1.0
 python-pptx>=1.0.0
 
@@ -43,6 +50,7 @@ numpy>=1.26.0
 
 # Utils
 aiofiles>=24.1.0
+celery>=5.4.0
 redis>=5.2.0
 httpx>=0.28.0
 

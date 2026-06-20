@@ -112,6 +112,23 @@ class WebSocketManager:
                 logger.warning(f"Failed to send to {conn_id}: {e}")
                 await self.disconnect(conn_id)
 
+    async def broadcast_to_workspace(self, workspace_id: str, event: dict):
+        """向指定 workspace 的所有在线连接广播事件"""
+        count = 0
+        dead = []
+        for conn_id, meta in list(self._metadata.items()):
+            if meta.get("workspace_id") == workspace_id:
+                ws = self._connections.get(conn_id)
+                if ws:
+                    try:
+                        await ws.send_json(event)
+                        count += 1
+                    except Exception:
+                        dead.append(conn_id)
+        for conn_id in dead:
+            await self.disconnect(conn_id)
+        return count
+
     async def _heartbeat_loop(self):
         """定期检测死连接"""
         while True:

@@ -1,0 +1,22 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]: AI
+      - heading "Create Account" [level=3] [ref=e19]
+      - paragraph [ref=e8]: Register for AI Workspace
+    - generic [ref=e9]:
+      - generic [ref=e10]:
+        - generic [ref=e11]:
+          - text: Email
+          - textbox "you@company.com" [ref=e12]
+        - generic [ref=e20]:
+          - text: Username
+          - textbox "username" [ref=e21]
+        - generic [ref=e13]:
+          - text: Password
+          - textbox "••••••••" [ref=e14]
+        - button "Create Account" [ref=e22] [cursor=pointer]
+      - paragraph [ref=e16]:
+        - text: Already have an account?
+        - button "Sign In" [active] [ref=e23] [cursor=pointer]
+  - alert [ref=e18]

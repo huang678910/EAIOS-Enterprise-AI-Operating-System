@@ -44,7 +44,7 @@ export default function AIAnalysisPanel({ analysis, loading, onRefresh }: AIAnal
 
         {!analysis && !loading && (
           <p className="text-sm text-gray-400 text-center py-4">
-            Click "Refresh" to generate AI analysis based on current business data.
+            Click <b>Refresh</b> to generate AI analysis based on current business data.
           </p>
         )}
 

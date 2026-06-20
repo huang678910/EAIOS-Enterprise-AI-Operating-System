@@ -141,6 +141,7 @@ async def supervisor_node(state: AgentState) -> dict:
         customer_kw = ["customer satisf", "churn", "nps", "retention", "complaint", "feedback", "loyalty"]
         operations_kw = ["efficiency", "process", "workflow", "optimization", "bottleneck", "quality", "throughput"]
         procurement_kw = ["inventory", "supply chain", "vendor", "supplier", "purchasing", "procurement", "stock", "reorder"]
+        decision_kw = ["是否应该", "是否应该进入", "是否应该扩张", "是否应该转型", "战略决策", "进入市场", "扩张", "降本", "转型", "战略分析", "企业战略", "重大决策", "是否值得"]
 
         # Build pipeline based on keyword combinations
         pipeline = []
@@ -164,6 +165,8 @@ async def supervisor_node(state: AgentState) -> dict:
             pipeline.append("operations")
         if any(kw in q for kw in procurement_kw):
             pipeline.append("procurement")
+        if any(kw in q for kw in decision_kw):
+            pipeline.append("decision")
         if any(kw in q for kw in sql_kw):
             pipeline.append("sql")
         if any(kw in q for kw in analyst_kw):
@@ -404,6 +407,20 @@ async def procurement_node(state: AgentState) -> dict:
     }
 
 
+async def decision_node(state: AgentState) -> dict:
+    """Decision node — strategic decision center"""
+    logger.info("Decision Agent: strategic analysis")
+    from app.agents.decision_agent import run_decision_agent
+    result = await run_decision_agent(
+        query=state.get("user_query", ""),
+        context_text=state.get("context_text", ""),
+    )
+    return {
+        "final_response": result.get("final_response", ""),
+        "agent_trace": result.get("agent_trace", ["decision"]),
+    }
+
+
 async def formatter_node(state: AgentState) -> dict:
     """Formatter node - finalize output"""
     agent_trace = state.get("agent_trace", [])
@@ -416,6 +433,7 @@ async def formatter_node(state: AgentState) -> dict:
 AGENT_NAMES = (
     "search", "chat", "research", "analyst", "writer", "sql", "profile", "memory",
     "ceo", "finance", "sales", "hr", "customer", "operations", "procurement",
+    "decision",
 )
 
 
@@ -449,6 +467,7 @@ def create_supervisor_graph() -> CompiledStateGraph:
     workflow.add_node("customer", customer_node)
     workflow.add_node("operations", operations_node)
     workflow.add_node("procurement", procurement_node)
+    workflow.add_node("decision", decision_node)
     workflow.add_node("formatter", formatter_node)
 
     workflow.set_entry_point("supervisor")

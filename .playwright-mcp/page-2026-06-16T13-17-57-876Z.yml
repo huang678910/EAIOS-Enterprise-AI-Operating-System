@@ -1,0 +1,7 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - button "Toggle menu" [ref=e3] [cursor=pointer]:
+      - img [ref=e4]
+    - main [ref=e5]:
+      - generic [ref=e6]: Select a workspace first.
+  - alert [ref=e7]

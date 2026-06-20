@@ -2,13 +2,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore, useWorkspaceStore } from "@/lib/stores";
-import { listMetrics, recordMetric, batchRecordMetrics, deleteMetric, getMetricSnapshot } from "@/lib/api-client";
+import { listMetrics, recordMetric, batchRecordMetrics, updateMetric, deleteMetric, getMetricSnapshot } from "@/lib/api-client";
 import type { MetricData } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import WorkspaceSelector from "@/components/layout/WorkspaceSelector";
-import { Plus, Trash2, Upload } from "lucide-react";
+import { Plus, Trash2, Upload, Edit3, X } from "lucide-react";
 
 const CATEGORIES = ["revenue", "cost", "inventory", "hr", "operations", "custom"];
 const METRIC_PRESETS = [
@@ -33,6 +33,7 @@ export default function MetricsPage() {
   const workspaceId = useWorkspaceStore((s) => s.activeWorkspaceId);
 
   const [metrics, setMetrics] = useState<MetricData[]>([]);
+  const [editMetric, setEditMetric] = useState<Record<string, { metric_value: string; notes: string }>>({});
   const [categoryFilter, setCategoryFilter] = useState("");
   const [snapshot, setSnapshot] = useState<MetricData[]>([]);
 
@@ -97,6 +98,16 @@ export default function MetricsPage() {
     if (!workspaceId || !confirm("Delete this metric entry? (Admin only)")) return;
     try { await deleteMetric(workspaceId, id); loadData(); }
     catch { alert("Delete failed — admin role required"); }
+  };
+
+  const handleUpdateMetric = async (id: string) => {
+    if (!workspaceId) return;
+    const e = editMetric[id]; if (!e) return;
+    try {
+      await updateMetric(workspaceId, id, { metric_value: parseFloat(e.metric_value) || undefined, notes: e.notes || undefined });
+      const n = { ...editMetric }; delete n[id]; setEditMetric(n);
+      loadData();
+    } catch { alert("Update failed"); }
   };
 
   const handlePresetSelect = (preset: typeof METRIC_PRESETS[number]) => {
@@ -219,29 +230,41 @@ export default function MetricsPage() {
         ) : (
           metrics.map((m) => (
             <Card key={m.id} className="hover:shadow-sm transition-shadow group">
-              <CardContent className="p-3 flex items-center gap-4">
-                <div className="flex-1 min-w-0">
+              <CardContent className="p-3">
+                {editMetric[m.id] ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-gray-800">{m.metric_name}</span>
-                    {m.category && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{m.category}</span>
-                    )}
+                    <span className="text-sm font-medium text-gray-800 flex-shrink-0">{m.metric_name}</span>
+                    <Input type="number" value={editMetric[m.id].metric_value} onChange={(d) => setEditMetric({ ...editMetric, [m.id]: { ...editMetric[m.id], metric_value: d.target.value } })} className="w-28 h-7 text-xs" step="any" />
+                    <Input value={editMetric[m.id].notes} onChange={(d) => setEditMetric({ ...editMetric, [m.id]: { ...editMetric[m.id], notes: d.target.value } })} className="flex-1 h-7 text-xs" placeholder="Notes" />
+                    <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => handleUpdateMetric(m.id)}>Save</Button>
+                    <button onClick={() => { const n = { ...editMetric }; delete n[m.id]; setEditMetric(n); }} className="p-0.5 hover:bg-gray-200 rounded"><X size={14} /></button>
                   </div>
-                  <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
-                    <span>{m.metric_value.toLocaleString()}{m.unit ? ` ${m.unit}` : ""}</span>
-                    {m.period && <span>Period: {m.period}</span>}
-                    {m.notes && <span className="truncate max-w-[200px]">📝 {m.notes}</span>}
+                ) : (
+                  <div className="flex items-center gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-gray-800">{m.metric_name}</span>
+                        {m.category && <span className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{m.category}</span>}
+                      </div>
+                      <div className="flex gap-3 mt-0.5 text-xs text-gray-400">
+                        <span>{m.metric_value.toLocaleString()}{m.unit ? ` ${m.unit}` : ""}</span>
+                        {m.period && <span>Period: {m.period}</span>}
+                        {m.notes && <span className="truncate max-w-[200px]">📝 {m.notes}</span>}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-gray-400 flex-shrink-0">
+                      {m.recorded_at ? new Date(m.recorded_at).toLocaleDateString() : ""}
+                    </span>
+                    <button onClick={() => setEditMetric({ ...editMetric, [m.id]: { metric_value: m.metric_value.toString(), notes: m.notes || "" } })}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-blue-50 rounded transition-all flex-shrink-0" title="Edit">
+                      <Edit3 size={14} className="text-blue-400" />
+                    </button>
+                    <button onClick={() => handleDelete(m.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all flex-shrink-0" title="Delete (Admin only)">
+                      <Trash2 size={14} className="text-red-400" />
+                    </button>
                   </div>
-                </div>
-                <span className="text-[10px] text-gray-400 flex-shrink-0">
-                  {m.recorded_at ? new Date(m.recorded_at).toLocaleDateString() : ""}
-                </span>
-                <button
-                  onClick={() => handleDelete(m.id)}
-                  className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 rounded transition-all flex-shrink-0"
-                  title="Delete (Admin only)">
-                  <Trash2 size={14} className="text-red-400" />
-                </button>
+                )}
               </CardContent>
             </Card>
           ))

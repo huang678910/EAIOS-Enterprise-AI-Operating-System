@@ -277,7 +277,7 @@ export default function MemoriesPage() {
                         r.memory_type === "episodic" ? "bg-amber-50 text-amber-600" :
                         "bg-purple-50 text-purple-600"
                       }`}>{r.memory_type}</span>
-                      <span className="text-[10px] text-gray-400">Score: {(r.similarity * 100).toFixed(0)}%</span>
+                      <span className="text-[10px] text-gray-400">Score: {((r.similarity || 0) * 100).toFixed(0)}%</span>
                     </div>
                     <h3 className="text-sm font-medium">{r.title}</h3>
                     <p className="text-xs text-gray-500 mt-1">{r.content}</p>

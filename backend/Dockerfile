@@ -2,29 +2,22 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# System dependencies: build-essential (C++), ffmpeg (Whisper audio)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    ffmpeg \
+# Use Aliyun Debian mirror for faster apt in China, then install minimal deps
+RUN sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Pre-download embedding model to warm cache
-ENV SENTENCE_TRANSFORMERS_HOME=/app/model_cache
-
 COPY requirements.txt .
+# Use Tsinghua mirror for faster downloads in China; install CPU-only PyTorch first to skip ~1.5GB CUDA deps
+RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Pre-load embedding model during build
-RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('BAAI/bge-small-zh-v1.5')" || true
-
-# Pre-load Whisper base model during build (optional, skips download on first request)
-RUN python -c "import whisper; whisper.load_model('base')" || true
 
 COPY . .
 
-# Create uploads directory
 RUN mkdir -p uploads
 
 EXPOSE 8000
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--log-level", "info"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level info"]

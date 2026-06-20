@@ -117,17 +117,30 @@ class GraphService:
         return _run_query(cypher, params or {})
 
     def search(self, query_text: str, top_k: int = 5) -> list[dict]:
-        """Simple GraphRAG: search entities by name and return neighbors"""
-        results = _run_query("""
+        """分词匹配搜索：把输入拆成词，匹配包含任一关键词的实体"""
+        import re
+        # Tokenize: split by spaces + common delimiters + stopwords
+        tokens = [t.strip().lower() for t in re.split(r'[\s，。！？、；：的了吗呢在有是和与或谁哪什么如何怎么]', query_text) if len(t.strip()) >= 2]
+        if not tokens:
+            tokens = [query_text.strip().lower()]
+
+        # Build dynamic WHERE: entity name CONTAINS any token
+        clauses = []
+        params = {"ws_id": self.workspace_id, "limit": top_k * 3}
+        for i, token in enumerate(tokens):
+            key = f"q{i}"
+            clauses.append(f"(toLower(n.name) CONTAINS ${key} OR toLower(coalesce(n.description, '')) CONTAINS ${key})")
+            params[key] = token
+
+        cypher = f"""
         MATCH (n)
-        WHERE n.workspace_id = $ws_id
-          AND (toLower(n.name) CONTAINS toLower($query)
-               OR toLower(coalesce(n.description, '')) CONTAINS toLower($query))
+        WHERE n.workspace_id = $ws_id AND ({' OR '.join(clauses)})
         OPTIONAL MATCH (n)-[r]-(m)
         RETURN n.name as entity_name, labels(n) as entity_type,
                type(r) as relationship, m.name as related_entity
         LIMIT $limit
-        """, {"ws_id": self.workspace_id, "query": query_text, "limit": top_k * 3})
+        """
+        results = _run_query(cypher, params)
 
         if not results:
             return []

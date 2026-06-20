@@ -41,22 +41,40 @@ class AnalyticsService:
         """写入内存缓存"""
         _analysis_cache[self._cache_key()] = (_time.time() + CACHE_TTL, analysis)
 
+    @staticmethod
+    def _business_order(metric_name: str, category: str | None) -> tuple[int, str]:
+        """业务逻辑排序：核心指标优先。数字越小越靠前。"""
+        # Priority by category
+        cat_order = {"revenue": 0, "cost": 3, "hr": 5, "inventory": 6, "custom": 7, "operations": 8}
+        base = cat_order.get(category or "", 9)
+        # Within category, common important metrics first
+        name_order = {
+            "revenue": 0, "orders": 1, "gross_margin": 2, "arpu": 3,
+            "cogs": 0, "marketing_spend": 1, "logistics_cost": 2,
+            "headcount": 0, "attrition_rate": 1,
+            "inventory_level": 0, "inventory_turnover": 1,
+            "customer_satisfaction": 0,
+            "return_rate": 0, "fulfillment_rate": 1,
+        }
+        name_score = name_order.get(metric_name, 99)
+        return (base + name_score, metric_name)
+
     async def get_dashboard_data(self) -> dict:
-        """聚合仪表盘所需的所有数据"""
+        """聚合仪表盘所需的所有数据（业务逻辑排序）"""
         metrics_svc = BusinessMetricsService(self.db)
 
-        # 1. Metrics snapshot
+        # 1. Metrics snapshot — sorted by business importance
         snapshot_metrics = await metrics_svc.get_snapshot(self.workspace_id)
+        snapshot_metrics = sorted(snapshot_metrics, key=lambda m: self._business_order(m.metric_name, m.category))
         snapshot = {
             "company_id": self.workspace_id,
             "metrics": [m.to_dict() for m in snapshot_metrics],
             "generated_at": datetime.now(timezone.utc).isoformat(),
         }
 
-        # 2. Trends for top metrics
+        # 2. Trends for ALL metrics with ≥2 data points, sorted by business order
         trends = {}
-        top_metrics = snapshot_metrics[:6]
-        for m in top_metrics:
+        for m in snapshot_metrics:
             data_points = await metrics_svc.get_trend(self.workspace_id, m.metric_name)
             if len(data_points) >= 2:
                 first = data_points[0]["value"]

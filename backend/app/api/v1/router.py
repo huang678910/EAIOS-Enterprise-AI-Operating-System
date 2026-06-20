@@ -16,6 +16,8 @@ from app.api.v1.graph import router as graph_router
 from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.metrics import router as metrics_router
 from app.api.v1.analytics import router as analytics_router
+from app.api.v1.forecast import router as forecast_router
+from app.api.v1.alerts import router as proactive_alerts_router
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -35,3 +37,5 @@ api_router.include_router(graph_router)
 api_router.include_router(knowledge_router)
 api_router.include_router(metrics_router)
 api_router.include_router(analytics_router)
+api_router.include_router(forecast_router)
+api_router.include_router(proactive_alerts_router)

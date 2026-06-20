@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, FileText, Database, Users, FileBarChart, Settings, Building2, Share2, Brain, LogOut, BarChart3 } from "lucide-react";
+import { MessageSquare, FileText, Database, Users, FileBarChart, Settings, Share2, Brain, LogOut, BarChart3, TrendingUp } from "lucide-react";
 import { useAuthStore } from "@/lib/stores";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -14,6 +14,8 @@ const navItems = [
   { href: "/memories", label: "Memories", icon: Brain },
   { href: "/members", label: "Members", icon: Users },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/forecast", label: "Forecast", icon: TrendingUp },
+  { href: "/decision-center", label: "Decision Center", icon: Brain },
   { href: "/reports", label: "Reports", icon: FileBarChart },
 ];
 
@@ -25,7 +27,7 @@ const settingsItems = [
   { href: "/settings/metrics", label: "Metrics" },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const logout = useAuthStore((s) => s.logout);
   const [settingsOpen, setSettingsOpen] = useState(pathname.startsWith("/settings"));
@@ -52,6 +54,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                 isActive
@@ -88,6 +91,7 @@ export default function Sidebar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={onNavigate}
                     className={cn(
                       "block px-3 py-1.5 rounded text-xs transition-colors",
                       isActive

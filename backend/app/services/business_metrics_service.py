@@ -123,7 +123,7 @@ class BusinessMetricsService:
             select(BusinessMetric)
             .join(subq, (BusinessMetric.metric_name == subq.c.metric_name) & (BusinessMetric.recorded_at == subq.c.max_recorded))
             .where(BusinessMetric.company_id == company.id)
-            .order_by(BusinessMetric.metric_name)
+            .order_by(BusinessMetric.category.asc().nulls_last(), BusinessMetric.metric_name.asc())
         )
         return result.scalars().all()
 
@@ -155,7 +155,7 @@ class BusinessMetricsService:
         ]
 
     async def list_by_workspace(self, workspace_id: str, category: str | None = None) -> list[BusinessMetric]:
-        """列出 workspace 下所有指标（按时间倒序）"""
+        """列出 workspace 下所有指标（按类目 → 名称 → 时间排序）"""
         company = await self._get_company(workspace_id)
         if not company:
             return []
@@ -163,7 +163,9 @@ class BusinessMetricsService:
         stmt = (
             select(BusinessMetric)
             .where(BusinessMetric.company_id == company.id)
-            .order_by(BusinessMetric.recorded_at.desc())
+            .order_by(BusinessMetric.category.asc().nulls_last(),
+                      BusinessMetric.metric_name.asc(),
+                      BusinessMetric.recorded_at.desc())
         )
         if category:
             stmt = stmt.where(BusinessMetric.category == category)

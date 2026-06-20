@@ -24,6 +24,7 @@ def _ensure_nodes():
             analyst_node, writer_node, sql_node, profile_node, memory_node,
             ceo_node, finance_node, sales_node, hr_node,
             customer_node, operations_node, procurement_node,
+            decision_node,
         )
         AGENT_NODES["search"] = search_node
         AGENT_NODES["chat"] = chat_node
@@ -40,6 +41,7 @@ def _ensure_nodes():
         AGENT_NODES["customer"] = customer_node
         AGENT_NODES["operations"] = operations_node
         AGENT_NODES["procurement"] = procurement_node
+        AGENT_NODES["decision"] = decision_node
         logger.info(f"Agent nodes loaded: {list(AGENT_NODES.keys())}")
     except Exception as e:
         logger.error(f"Failed to load agent nodes: {e}", exc_info=True)

@@ -8,8 +8,10 @@ import KpiCard from "@/components/analytics/KpiCard";
 import TrendChart from "@/components/analytics/TrendChart";
 import AIAnalysisPanel from "@/components/analytics/AIAnalysisPanel";
 import GoalProgressBar from "@/components/analytics/GoalProgressBar";
+import ProactiveAlertCard from "@/components/analytics/ProactiveAlertCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, AlertTriangle, Target } from "lucide-react";
+import { BarChart3, Target, Bell } from "lucide-react";
+import api from "@/lib/api";
 
 const CHART_COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -21,6 +23,13 @@ export default function AnalyticsPage() {
   const { data, loading, error } = useDashboardData(workspaceId);
   const { analysis, loading: analysisLoading, generate } = useAiAnalysis(workspaceId);
   const [analysisGenerated, setAnalysisGenerated] = useState(false);
+  const [proactiveAlerts, setProactiveAlerts] = useState<Array<{
+    id: string; alert_type: string; severity: string; title: string;
+    description?: string; metric_name?: string; current_value?: number;
+    threshold_value?: number; suggested_action?: string; is_read: boolean; triggered_at?: string;
+  }>>([]);
+  const [checkingAlerts, setCheckingAlerts] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
 
   useEffect(() => { if (!token) router.push("/login"); }, [token, router]);
 
@@ -32,6 +41,14 @@ export default function AnalyticsPage() {
     }
   }, [data, analysisGenerated, generate, workspaceId]);
 
+  // Fetch proactive alerts
+  useEffect(() => {
+    if (!workspaceId) return;
+    api.get(`/api/v1/workspaces/${workspaceId}/alerts/proactive`)
+      .then((res) => setProactiveAlerts(res.data || []))
+      .catch(() => {});
+  }, [workspaceId]);
+
   const displayAnalysis = analysis || data?.analysis || null;
 
   if (!workspaceId) return <div className="p-8 text-gray-400">Select a workspace first.</div>;
@@ -39,7 +56,6 @@ export default function AnalyticsPage() {
   const snapshot = data?.metrics_snapshot?.metrics || [];
   const trends = data?.trends || {};
   const goals = data?.goals || [];
-  const alerts = data?.alerts || [];
 
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
@@ -68,27 +84,66 @@ export default function AnalyticsPage() {
         <div className="p-4 bg-red-50 text-red-600 rounded-lg text-sm">{error}</div>
       )}
 
-      {/* Alerts Section */}
-      {alerts.length > 0 && (
-        <div className="space-y-2">
-          {alerts.map((alert) => (
-            <div key={alert.id} className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm ${
-              alert.severity === "critical" ? "bg-red-50 text-red-700 border border-red-200" :
-              alert.severity === "warning" ? "bg-amber-50 text-amber-700 border border-amber-200" :
-              "bg-blue-50 text-blue-700 border border-blue-200"
-            }`}>
-              <AlertTriangle size={14} />
-              <span className="font-medium">{alert.metric_name}:</span>
-              <span>{alert.message}</span>
+      {/* Proactive Alerts */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Bell size={16} className="text-purple-500" />
+              Proactive Alerts
+              <span className="text-xs text-gray-400 font-normal">({proactiveAlerts.length} active)</span>
+            </CardTitle>
+            <button
+              onClick={async () => {
+                setCheckingAlerts(true); setCheckResult(null);
+                try {
+                  const checkRes = await api.post(`/api/v1/workspaces/${workspaceId}/alerts/proactive/check`);
+                  const count = checkRes.data?.alerts_generated || 0;
+                  const res = await api.get(`/api/v1/workspaces/${workspaceId}/alerts/proactive`);
+                  setProactiveAlerts(res.data || []);
+                  setCheckResult(`Scan complete — ${count} new alert(s) found`);
+                } catch {
+                  setCheckResult("Scan failed. Check backend connection.");
+                } finally {
+                  setCheckingAlerts(false);
+                }
+              }}
+              disabled={checkingAlerts}
+              className="text-xs px-3 py-1 rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors text-gray-500 disabled:opacity-50"
+            >
+              {checkingAlerts ? "Scanning..." : "Check Now"}
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {checkResult && (
+            <p className={`text-xs mb-3 px-3 py-1.5 rounded ${
+              checkResult.includes("failed") ? "bg-red-50 text-red-600" : "bg-green-50 text-green-600"
+            }`}>{checkResult}</p>
+          )}
+          {proactiveAlerts.length === 0 ? (
+            <p className="text-sm text-gray-400 text-center py-3">
+              No active alerts. The system checks KPIs and trends automatically every hour, or click <b>Check Now</b> to scan immediately.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {proactiveAlerts.map((alert) => (
+                <ProactiveAlertCard
+                  key={alert.id}
+                  alert={alert}
+                  workspaceId={workspaceId}
+                  onDismiss={(id) => setProactiveAlerts((prev) => prev.filter((a) => a.id !== id))}
+                />
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          )}
+        </CardContent>
+      </Card>
 
       {/* KPI Cards */}
       {snapshot.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {snapshot.slice(0, 8).map((m) => {
+          {snapshot.map((m) => {
             const trend = trends[m.metric_name];
             return (
               <KpiCard
@@ -108,7 +163,7 @@ export default function AnalyticsPage() {
       {/* Trend Charts */}
       {Object.keys(trends).length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {Object.entries(trends).slice(0, 6).map(([name, trend], i) => (
+          {Object.entries(trends).map(([name, trend], i) => (
             <Card key={name}>
               <CardContent className="p-4">
                 <TrendChart

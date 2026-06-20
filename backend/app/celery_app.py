@@ -12,6 +12,7 @@ celery = Celery(
     include=[
         "app.tasks.document_tasks",
         "app.tasks.report_tasks",
+        "app.tasks.alert_tasks",
     ],
 )
 
@@ -22,6 +23,16 @@ celery.conf.update(
     timezone="UTC",
     enable_utc=True,
     task_track_started=True,
-    task_soft_time_limit=300,   # 5 min soft limit
-    task_time_limit=600,        # 10 min hard limit
+    task_soft_time_limit=300,
+    task_time_limit=600,
+    beat_schedule={
+        "check-metrics-hourly": {
+            "task": "app.tasks.alert_tasks.check_metrics_alerts",
+            "schedule": 3600.0,
+        },
+        "check-goals-daily": {
+            "task": "app.tasks.alert_tasks.check_goals_alerts",
+            "schedule": 86400.0,
+        },
+    },
 )

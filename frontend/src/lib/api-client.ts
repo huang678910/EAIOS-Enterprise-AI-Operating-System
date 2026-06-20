@@ -307,6 +307,10 @@ export async function createGoal(ws: string, data: Partial<GoalData>): Promise<G
 export async function deleteGoal(ws: string, id: string): Promise<void> {
   await api.delete(`/api/v1/workspaces/${ws}/company/goals/${id}`);
 }
+export async function updateGoal(ws: string, id: string, data: Partial<GoalData>): Promise<GoalData> {
+  const res = await api.put(`/api/v1/workspaces/${ws}/company/goals/${id}`, data);
+  return res.data;
+}
 
 // ─── Company KPIs ─────────────────────────────────────
 
@@ -418,6 +422,10 @@ export async function getMetricTrend(ws: string, name: string, periods = 6): Pro
 
 export async function deleteMetric(ws: string, id: string): Promise<void> {
   await api.delete(`/api/v1/workspaces/${ws}/metrics/${id}`);
+}
+export async function updateMetric(ws: string, id: string, data: { metric_value?: number; notes?: string }): Promise<MetricData> {
+  const res = await api.put(`/api/v1/workspaces/${ws}/metrics/${id}`, data);
+  return res.data;
 }
 
 // ─── Analytics Center ──────────────────────────────────

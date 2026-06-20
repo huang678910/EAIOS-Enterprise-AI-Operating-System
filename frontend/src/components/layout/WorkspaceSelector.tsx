@@ -18,6 +18,9 @@ export default function WorkspaceSelector({ label = "Current Workspace" }: Props
 
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -41,11 +44,11 @@ export default function WorkspaceSelector({ label = "Current Workspace" }: Props
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3" suppressHydrationWarning>
       <Building2 size={16} className="text-gray-400" />
       <div className="flex items-center gap-2">
         <span className="text-xs text-gray-500">{label}:</span>
-        {loading ? (
+        {!mounted || loading ? (
           <span className="text-sm text-gray-400">Loading...</span>
         ) : workspaces.length === 0 ? (
           <span className="text-sm text-amber-600">No workspaces — create one in Chat first</span>

@@ -10,6 +10,9 @@ from app.models.company import (
 )
 from app.models.enterprise_memory import EnterpriseMemory, MemoryEvent
 from app.models.business_metrics import BusinessMetric
+from app.models.prediction import Prediction
+from app.models.proactive_alert import ProactiveAlert
+from app.models.decision import Decision
 
 __all__ = [
     "User",
@@ -31,4 +34,7 @@ __all__ = [
     "EnterpriseMemory",
     "MemoryEvent",
     "BusinessMetric",
+    "Prediction",
+    "ProactiveAlert",
+    "Decision",
 ]
