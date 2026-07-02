@@ -36,3 +36,17 @@ redisdata/
 
 # Alembic
 backend/alembic/versions/*.pyc
+
+# Generated documents & scripts
+*.docx
+gen_*.py
+
+# Model cache (large binary files)
+backend/model_cache/
+
+# Export reports
+backend/uploads/exports/
+
+# Test data & internal docs
+测试文档/
+流程等/
